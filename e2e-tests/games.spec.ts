@@ -1,6 +1,41 @@
 import { test, expect, type Response } from '@playwright/test';
 
 test.describe('Game Listing and Navigation', () => {
+  test('should filter games by category and publisher', async ({ page }) => {
+    await page.goto('/');
+    const filters = page.getByTestId('game-filters');
+    await expect(filters).toBeVisible();
+    const initialCardCount = await page.getByTestId('game-card').count();
+
+    await test.step('Filter by category', async () => {
+      const strategyFilter = page.getByLabel('Strategy');
+      await strategyFilter.focus();
+      await page.keyboard.press('Space');
+      await expect(strategyFilter).toBeChecked();
+      await expect(page).toHaveURL(/[?&]category=\d+/);
+      const visibleCards = page.locator('[data-testid="game-card"]:not([hidden])');
+      await expect(visibleCards).toHaveCount(4);
+      await expect(page.getByTestId('filter-status')).toHaveText('4 games shown');
+    });
+
+    await test.step('Combine category and publisher filters', async () => {
+      await page.getByTestId('publisher-filter').selectOption({ label: 'CodeForge Studios' });
+      await expect(page).toHaveURL(/[?&]publisher=\d+/);
+      const visibleCards = page.locator('[data-testid="game-card"]:not([hidden])');
+      await expect(visibleCards).toHaveCount(1);
+      await expect(visibleCards.first()).toContainText('DevOps Dominion');
+    });
+
+    await test.step('Restore filters from URL and clear them', async () => {
+      await page.reload();
+      await expect(page.getByLabel('Strategy')).toBeChecked();
+      await expect(page.getByTestId('publisher-filter')).toHaveValue(/\d+/);
+      await page.getByTestId('clear-filters').click();
+      await expect(page).toHaveURL('/');
+      await expect(page.locator('[data-testid="game-card"]:not([hidden])')).toHaveCount(initialCardCount);
+    });
+  });
+
   test('should display games with titles on index page', async ({ page }) => {
     await test.step('Navigate to homepage', async () => {
       await page.goto('/');

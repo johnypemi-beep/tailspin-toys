@@ -1,14 +1,20 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import GameCard from '../components/GameCard.astro';
+import GameFilters from '../components/GameFilters.astro';
 import PageHero from '../components/PageHero.astro';
 import EmptyState from '../components/EmptyState.astro';
 import { getDatabase } from '../lib/db';
-import { getAllGames } from '../lib/games';
+import { getAllCategories, getAllGames, getAllPublishers } from '../lib/games';
 
 export const prerender = true;
 
-const games = await getAllGames(getDatabase());
+const database = getDatabase();
+const [games, categories, publishers] = await Promise.all([
+  getAllGames(database),
+  getAllCategories(database),
+  getAllPublishers(database),
+]);
 ---
 
 <Layout title="Tailspin Toys - Crowdfunding your new favorite game!">
@@ -24,10 +30,74 @@ const games = await getAllGames(getDatabase());
       {games.length === 0 ? (
         <EmptyState text="No games available at the moment." />
       ) : (
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="games-grid">
-          {games.map((game) => <GameCard game={game} />)}
-        </div>
+        <>
+          <GameFilters categories={categories} publishers={publishers} />
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="games-grid">
+            {games.map((game) => <GameCard game={game} />)}
+          </div>
+          <div hidden data-testid="filtered-empty-state">
+            <EmptyState text="No games match the selected filters." />
+          </div>
+        </>
       )}
     </div>
   </div>
 </Layout>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('[data-testid="game-filters"]');
+  const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-testid="game-card"]'));
+  const emptyState = document.querySelector<HTMLElement>('[data-testid="filtered-empty-state"]');
+  const status = document.querySelector<HTMLElement>('[data-testid="filter-status"]');
+
+  if (form && emptyState && status) {
+    const categoryInputs = Array.from(form.querySelectorAll<HTMLInputElement>('input[name="category"]'));
+    const publisherInput = form.querySelector<HTMLSelectElement>('select[name="publisher"]');
+
+    const applyFilters = (updateUrl: boolean): void => {
+      const selectedCategories = categoryInputs
+        .filter((input) => input.checked)
+        .map((input) => input.value);
+      const selectedPublisher = publisherInput?.value ?? '';
+      let visibleCount = 0;
+
+      cards.forEach((card) => {
+        const categoryMatches = selectedCategories.length === 0
+          || selectedCategories.includes(card.dataset.categoryId ?? '');
+        const publisherMatches = selectedPublisher === ''
+          || card.dataset.publisherId === selectedPublisher;
+        const visible = categoryMatches && publisherMatches;
+        card.hidden = !visible;
+        if (visible) visibleCount += 1;
+      });
+
+      emptyState.hidden = visibleCount !== 0;
+      status.textContent = `${visibleCount} ${visibleCount === 1 ? 'game' : 'games'} shown`;
+
+      if (updateUrl) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('category');
+        selectedCategories.forEach((category) => url.searchParams.append('category', category));
+        if (selectedPublisher) {
+          url.searchParams.set('publisher', selectedPublisher);
+        } else {
+          url.searchParams.delete('publisher');
+        }
+        window.history.replaceState({}, '', url);
+      }
+    };
+
+    const params = new URLSearchParams(window.location.search);
+    const selectedCategories = new Set(params.getAll('category'));
+    categoryInputs.forEach((input) => {
+      input.checked = selectedCategories.has(input.value);
+    });
+    if (publisherInput) publisherInput.value = params.get('publisher') ?? '';
+
+    form.addEventListener('input', () => applyFilters(true));
+    form.addEventListener('reset', () => {
+      window.setTimeout(() => applyFilters(true), 0);
+    });
+    applyFilters(false);
+  }
+</script>
