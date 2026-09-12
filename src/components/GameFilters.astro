@@ -1,0 +1,56 @@
+---
+import type { Category, Publisher } from '../types/game';
+
+/**
+ * Accessible catalog controls for selecting category and publisher filters.
+ */
+interface Props {
+    categories: Category[];
+    publishers: Publisher[];
+}
+
+const { categories, publishers } = Astro.props;
+---
+
+<form class="mb-8 rounded-xl border border-slate-700 bg-slate-800/60 p-6" data-testid="game-filters">
+  <div class="flex flex-col gap-6 md:flex-row md:items-end">
+    <fieldset class="flex-1">
+      <legend class="mb-3 text-sm font-semibold text-slate-200">Categories</legend>
+      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2" data-testid="category-filters">
+        {categories.map((category) => (
+          <label class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-slate-300 hover:bg-slate-700/60">
+            <input
+              type="checkbox"
+              name="category"
+              value={category.id}
+              class="h-4 w-4 rounded border-slate-600 bg-slate-900 text-blue-500 focus:ring-2 focus:ring-blue-500"
+              data-testid={`category-filter-${category.id}`}
+            />
+            <span>{category.name}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+
+    <label class="flex min-w-52 flex-col gap-2 text-sm font-semibold text-slate-200">
+      <span>Publisher</span>
+      <select
+        name="publisher"
+        class="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 font-normal text-slate-200 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+        data-testid="publisher-filter"
+      >
+        <option value="">All publishers</option>
+        {publishers.map((publisher) => <option value={publisher.id}>{publisher.name}</option>)}
+      </select>
+    </label>
+
+    <button
+      type="reset"
+      class="rounded-lg border border-slate-600 px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+      data-testid="clear-filters"
+    >
+      Clear filters
+    </button>
+  </div>
+  <p class="mt-4 text-sm text-slate-400" data-testid="filter-status" aria-live="polite"></p>
+</form>
